@@ -3,7 +3,7 @@ Get PurpleAir sensor data from PurpleAir and Thingspeak API's for bounding box a
 Data are stored in csv files per sensor similarly to the PurpleAir map download tool.
 
 ## Operation  
-1. Chage hard coded coordinates in bbox variable in get_sensor_indexes()
+1. Change hard coded coordinates in bbox variable in get_sensor_indexes()
 2. Change hard coded yr and mnth in Main
 3. Edit the directory paths as appropriate for your setup
 4. Create a file called config.py in the same folder as the code, with your PurpleAir keys entered as follows:
