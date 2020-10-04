@@ -1,8 +1,19 @@
-# Get PurpleAir sensor data from API
+# Get PurpleAir sensor data from PurpleAir and Thingspeak API's for bounding box and year-month
+# James S. Lucas 20201004
+# Todo:  prepare as function accepting input for bbox and date range
+#        convert sensor_ids tuple to dictionary
+#        rename variables consistently with names that are more appropriate to function
+#        allow partial month date range
+#        exception handling
+#        directories and paths from config file vs hardcoded. Prompt for path on first run.
+
 import requests
 import json
-#from os import path
+import os
 import config
+import pandas as pd
+import calendar
+from datetime import datetime
 
 
 #user_directory = r' '
@@ -15,39 +26,31 @@ wsl_ubuntu_servitor = r'/mnt/c/Users/Jim/OneDrive/Documents/House/PurpleAir'
 # Change this variable to point to the desired directory above. 
 data_directory = matrix5
 
-sensor_id = "9208"
 
-connection_url = "https://api.purpleair.com/v1/sensors"
-#                  SE lon / lat               NW lon / lat
-#bbox = [-117.5298-.004, 33.7180-.004, -117.4166+.004, 33.8188+.004]
-
-params = {
-   'fields': "name,latitude,longitude,pm2.5",
-   'nwlng': "-117.5298",
-   'selat': "33.7180",
-   'selng': "-117.4166",
-   'nwlat': "33.8188"
-}
-
-url_template = connection_url + "?fields={fields}&nwlng={nwlng}&nwlat={nwlat}&selng={selng}&selat={selat}"
-url = url_template.format(**params)
-
-def get_sensor_indexes(url):
+def get_sensor_indexes():
+   root_url = "https://api.purpleair.com/v1/sensors"
+   #                  SE lon / lat               NW lon / lat
+   bbox = ['-117.5298', '33.7180', '-117.4166', '33.8188']
+   #sensor_index is returned automatically and doesn't need to be included in params fields
+   params = {
+      'fields': "name,latitude,longitude",
+      'nwlng': bbox[0],
+      'selat': bbox[1],
+      'selng': bbox[2],
+      'nwlat': bbox[3]
+      }
+   url_template = root_url + "?fields={fields}&nwlng={nwlng}&nwlat={nwlat}&selng={selng}&selat={selat}"
+   url = url_template.format(**params)
    try:
       list_of_sensor_indexes = []
-      print(url)
-      header = {"X-API-Key":config.X_API_Key}
+      header = {"X-API-Key":config.READ_KEY}
       response = requests.get(url, headers=header)
-      #print(response.text)
-      json_response = response.json()
       if response.status_code == 200:
-         print(json.dumps(json_response, indent=4, sort_keys=True))
+         #json_response = response.json()
+         #print(json.dumps(json_response, indent=4, sort_keys=True))
          sensors_data = json.loads(response.text)
-         #pm25_reading = sensors_data['fields'][4]
-         pm25_reading = sensors_data['data']
          for sensor_list in sensors_data['data']:
             list_of_sensor_indexes.append(sensor_list[0])
-         print(pm25_reading)
          print(" ")
          print (list_of_sensor_indexes)
          return list_of_sensor_indexes
@@ -57,52 +60,89 @@ def get_sensor_indexes(url):
       print(e)
 
 
-def create_group(list_of_sensor_indexes):
-   create_group_id_flag = False
-   if create_group_id_flag:
-      header = {"X-API-Key":config.WRITE_KEY}
-      group_create_url = "https://api.purpleair.com/v1/groups"
-      payload = {'name': "SCTV"}
-      response_group = requests.post(group_create_url, params = payload, headers=header)
-      group_data = json.loads(response_group.text)
-      group_id = group_data['group_id']
-      print("group_id: " + str(group_id))
-      print(" ")
-      print(response_group.text)
-   member_create_url = "https://api.purpleair.com/v1/groups/{group_id}/members"
-   group_id = 458
-   params = {'group_id': group_id}
-   url = member_create_url.format(**params)
-   print(" ")
-   print(url)
-   for sensor_index in list_of_sensor_indexes:
-      payload = {'sensor_index': sensor_index}
-      header = {"X-API-Key":config.WRITE_KEY, 'Content-Type': 'application/json'}
-      response_members = requests.post(url, json=payload, headers=header)
-      print(response_members.text)
-      print(" ")
-
-
 def get_sensor_ids(list_of_sensor_indexes):
    sensor_ids = []
    root_url = "https://api.purpleair.com/v1/sensors/{sensor_index}"
-   header = {"X-API-Key":config.X_API_Key}
+   header = {"X-API-Key":config.READ_KEY}
    for sensor_index in list_of_sensor_indexes:
       params = {'sensor_index': sensor_index}
       url = root_url.format(**params)
       response = requests.get(url, headers=header)
-      #payload = {'sensor_index': sensor_index}
-      json_response = response.json()
-      print(json.dumps(json_response, indent=4, sort_keys=True))
-      print(" ")
       sensor_data = json.loads(response.text)
-      sensor_ids.append((sensor_data['sensor']['sensor_index'], sensor_data['sensor']['primary_id_a'], sensor_data['sensor']['primary_key_a']))
-   for sensor_id in sensor_ids:
-      print(sensor_id)
+      sensor_ids.append((
+         sensor_data['sensor']['name'],
+         sensor_data['sensor']['latitude'],
+         sensor_data['sensor']['longitude'],
+         sensor_data['sensor']['sensor_index'], 
+         sensor_data['sensor']['primary_id_a'], 
+         sensor_data['sensor']['primary_key_a']
+         ))
+   return sensor_ids
 
 
-create_group_flag = False
-list_of_sensor_indexes = get_sensor_indexes(url)
-if create_group_flag:
-   create_group(list_of_sensor_indexes)
+def date_range(start, end, intv):
+   diff = (end  - start ) / intv
+   for i in range(intv):
+      yield (start + diff * i).strftime("%Y%m%d")
+   yield end.strftime("%Y%m%d")
+
+
+def get_ts_data(sensor_ids, data_directory, yr, mnth):
+   for sensor in sensor_ids:
+      sensor_name = sensor[0]
+      lat = sensor[1]
+      lon = sensor[2]
+      mnth_range = calendar.monthrange(yr, mnth)
+      start_time_str = str(yr) + "-" + str(mnth) + "-" + str(mnth_range[0])
+      start_time = datetime.strptime(start_time_str, "%Y-%m-%d")
+      end_time_str = str(yr) + "-" + str(mnth) + "-" + str(mnth_range[1])
+      end_time = datetime.strptime(end_time_str, "%Y-%m-%d")
+      data_range = list(date_range(start_time, end_time, 4)) 
+      filename = sensor_name + " (" + str(lat) + " " + str(lon) + ")" + " Primary" + " " + str(mnth) + "_" + str(mnth_range[0]) + "_" + str(yr) + " " + str(mnth) + "_" + str(mnth_range[1]) + "_" + str(yr) + ".csv"
+      output_folder = start_time.strftime('%Y-%m')
+      output_path = data_directory + os.path.sep + output_folder
+      if not os.path.isdir(output_path):
+         os.mkdir(output_path)
+      output_pathname = output_path + os.path.sep + filename
+      for t in range(0, 4):
+         root_url = 'https://api.thingspeak.com/channels/{channel}/feeds.csv?api_key={api_key}&start={start}%2000:00:00&end={end}%2023:59:59'
+         channel = sensor[4]
+         api_key = sensor[5]
+         start_time = data_range[t]
+         end_time = data_range[t+1]
+         params = {
+            'channel': channel,
+            'api_key': api_key,
+            'start': start_time,
+            'end': end_time
+            }
+         url = root_url.format(**params)
+         print(" ")
+         print(url)
+         if t == 0:
+            df = pd.read_csv(url)
+         else:
+            df = pd.concat([df, pd.read_csv(url)])
+      mapping = {
+         'created_at': 'created_at',
+         'entry_id': 'entry_id',
+         'field1': 'PM1.0_CF1_ug/m3',
+         'field2': 'PM2.5_CF1_ug/m3',
+         'field3': 'PM10.0_CF1_ug/m3',
+         'field4': 'UptimeMinutes',
+         'field5': 'RSSI_dbm',
+         'field6': 'Temperature_F',
+         'field7': 'Humidity_%',
+         'field8': 'PM2.5_ATM_ug/m3'
+         }
+      df = df.rename(columns=mapping)
+      print(df)
+      df.to_csv(output_pathname, index=False, header=True)
+
+
+#Main
+yr = 2020
+mnth = 9
+list_of_sensor_indexes = get_sensor_indexes()
 sensor_ids = get_sensor_ids(list_of_sensor_indexes)
+get_ts_data(sensor_ids, data_directory, yr, mnth)
