@@ -7,7 +7,7 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
 2. Change hard coded yr and mnth in Main
 3. Edit the directory paths as appropriate for your setup
 4. Create a file called config.py in the same folder as the code, with your PurpleAir keys entered as follows:
-    READ_KEY = 'READ_KEY'
+    READ_KEY = 'READ_KEY'  
     WRITE_KEY = 'WRITE_KEY'
 
 ## Potential Future Enhancements
