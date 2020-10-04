@@ -29,7 +29,7 @@ data_directory = matrix5
 
 def get_sensor_indexes():
    root_url = "https://api.purpleair.com/v1/sensors"
-   #                  SE lon / lat               NW lon / lat
+   #           SE lon / lat            NW lon / lat
    bbox = ['-117.5298', '33.7180', '-117.4166', '33.8188']
    #sensor_index is returned automatically and doesn't need to be included in params fields
    params = {
@@ -53,6 +53,7 @@ def get_sensor_indexes():
             list_of_sensor_indexes.append(sensor_list[0])
          print(" ")
          print (list_of_sensor_indexes)
+         print(" ")
          return list_of_sensor_indexes
       else:
          print("error no 200 response.")
@@ -117,7 +118,6 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
             'end': end_time
             }
          url = root_url.format(**params)
-         print(" ")
          print(url)
          if t == 0:
             df = pd.read_csv(url)
@@ -136,6 +136,7 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
          'field8': 'PM2.5_ATM_ug/m3'
          }
       df = df.rename(columns=mapping)
+      print(" ")
       print(df)
       df.to_csv(output_pathname, index=False, header=True)
 
