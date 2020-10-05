@@ -93,6 +93,7 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
       sensor_name = sensor[0]
       lat = sensor[1]
       lon = sensor[2]
+      # returns a tuple (first_day_of_month, last_day_of_month)
       mnth_range = calendar.monthrange(yr, mnth)
       start_time_str = str(yr) + "-" + str(mnth) + "-" + str(mnth_range[0])
       start_time = datetime.strptime(start_time_str, "%Y-%m-%d")
