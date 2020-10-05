@@ -12,9 +12,10 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
 
 ## Potential Future Enhancements
 1. change to class or function accepting input for bbox and date range and returning data as DF or other.
-2. convert sensor_ids tuple to dictionary
-3. rename variables consistently with names that are more appropriate to function
-4. allow partial month date range
-5. exception handling
+2. convert sensor_ids tuple to dictionary.
+3. rename variables consistently with names that are more appropriate to function.
+4. allow partial month date range.
+5. exception handling.
 6. directories and paths from config file vs hardcoded. Prompt for path on first run and save as config file.
 7. Include sensor name and coordinates with the data, not just in the filename.
+8. Add option to store data in local time vs UTC.
