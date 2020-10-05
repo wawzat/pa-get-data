@@ -6,6 +6,7 @@
 #        allow partial month date range
 #        exception handling
 #        directories and paths from config file vs hardcoded. Prompt for path on first run.
+#        add option to store data in local time vs UTC
 
 import requests
 import json
