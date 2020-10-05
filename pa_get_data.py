@@ -100,7 +100,17 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
       end_time_str = str(yr) + "-" + str(mnth) + "-" + str(mnth_range[1])
       end_time = datetime.strptime(end_time_str, "%Y-%m-%d")
       data_range = list(date_range(start_time, end_time, 4)) 
-      filename = sensor_name + " (" + str(lat) + " " + str(lon) + ")" + " Primary" + " " + str(mnth) + "_" + str(mnth_range[0]) + "_" + str(yr) + " " + str(mnth) + "_" + str(mnth_range[1]) + "_" + str(yr) + ".csv"
+      #filename = sensor_name + " (" + str(lat) + " " + str(lon) + ")" + " Primary" + " " + str(mnth) + "_" + str(mnth_range[0]) + "_" + str(yr) + " " + str(mnth) + "_" + str(mnth_range[1]) + "_" + str(yr) + ".csv"
+      filename_template = 'sensor_name ({lat} {lon}) Primary {mnth}_{first_day}_{yr} {mnth}_{last_day}_{yr}.csv'
+      params = {
+         'lat': str(lat),
+         'lon': str(lon),
+         'mnth': str(mnth),
+         'first_day': str(mnth_range[0]),
+         'last_day': str(mnth_range[1]),
+         'yr': str(yr)
+         }
+      filename = filename_template.format(**params)
       output_folder = start_time.strftime('%Y-%m')
       output_path = data_directory + os.path.sep + output_folder
       if not os.path.isdir(output_path):
