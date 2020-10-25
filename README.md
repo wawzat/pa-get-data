@@ -9,6 +9,5 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
 
     path_variable = r'd:\Users\UserName\foo\bar'
 
-    #           SE lon / lat            NW lon / lat
     bbox = ['-118.6298', '33.9180', '-118.4166', '33.7188'] 
 2. Run the program for example: python pa_get_data -y 2020 -m 9
