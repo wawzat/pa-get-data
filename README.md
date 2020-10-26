@@ -10,4 +10,12 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
     path_variable = r'd:\Users\UserName\foo\bar'
 
     bbox = ['-118.6298', '33.9180', '-118.4166', '33.7188'] 
-2. Run the program for example: python pa_get_data -y 2020 -m 9
+2. Run the program for example: python pa_get_data.pu -y 2020 -m 9
+
+
+# get_weather
+Stand alone program that gets weather data from DarkSky
+
+1. Add the Darsky API Key to config.py
+2. Change the HOME variable to your home coordinates in config.py
+3. Run the program for example: python get_weather.py -y 2020 -m 9
