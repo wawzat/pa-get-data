@@ -23,34 +23,40 @@ data_directory = config.matrix5
 
 
 def get_arguments():
-    parser = argparse.ArgumentParser(
-    description='Dowload PurpleAir csv files for sensors in bounding box during year and month provided.',
-    prog='pa_get_data',
-    usage='%(prog)s [-y <year>], [-m <month>]',
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    g=parser.add_argument_group(title='arguments',
-          description='''    -y, --year   year to get data for.
-    -m  --month  month to get data for.
-    -c  --channel  channel to get                                        ''')
-    g.add_argument('-y', '--year',
-                    type=int,
-                    dest='yr',
-                    help=argparse.SUPPRESS)
-    g.add_argument('-m', '--month',
-                    type=int,
-                    dest='mnth',
-                    help=argparse.SUPPRESS)
-    g.add_argument('-c', '--channel',
-                    type=str,
-                    dest='channel',
-                    default='a',
-                    choices=['a', 'b'],
-                    help=argparse.SUPPRESS)
-    args = parser.parse_args()
-    return(args)
+   parser = argparse.ArgumentParser(
+   description='Dowload PurpleAir csv files for sensors in bounding box during year and month provided.',
+   prog='pa_get_data',
+   usage='%(prog)s [-y <year>], [-m <month>], [-c <channel>], [-g <group>]',
+   formatter_class=argparse.RawDescriptionHelpFormatter,
+   )
+   g=parser.add_argument_group(title='arguments',
+         description='''    -y, --year   year to get data for.
+   -m  --month  month to get data for.
+   -c  --channel  channel to get  
+   -g  --group    group to get (primary or secondary)                                      ''')
+   g.add_argument('-y', '--year',
+                  type=int,
+                  dest='yr',
+                  help=argparse.SUPPRESS)
+   g.add_argument('-m', '--month',
+                  type=int,
+                  dest='mnth',
+                  help=argparse.SUPPRESS)
+   g.add_argument('-c', '--channel',
+                  type=str,
+                  dest='channel',
+                  default='a',
+                  choices=['a', 'b'],
+                  help=argparse.SUPPRESS)
+   g.add_argument('-g', '--group',
+                  type=str,
+                  dest='group',
+                  default='a',
+                  choices=['p', 's'],
+                  help=argparse.SUPPRESS)
+   args = parser.parse_args()
+   return(args)
 
-args = get_arguments()
 
 
 def get_sensor_indexes():
@@ -101,8 +107,12 @@ def get_sensor_ids(list_of_sensor_indexes):
          sensor_data['sensor']['primary_id_a'], 
          sensor_data['sensor']['primary_key_a'],
          sensor_data['sensor']['primary_id_b'], 
-         sensor_data['sensor']['primary_key_b']
-         ))
+         sensor_data['sensor']['primary_key_b'],
+         sensor_data['sensor']['secondary_id_a'], 
+         sensor_data['sensor']['secondary_key_a'],
+         sensor_data['sensor']['secondary_id_b'], 
+         sensor_data['sensor']['secondary_key_b']
+        ))
    return sensor_ids
 
 
@@ -113,7 +123,7 @@ def date_range(start, end, intv):
    yield end.strftime("%Y%m%d")
 
 
-def get_ts_data(sensor_ids, data_directory, yr, mnth):
+def get_ts_data(sensor_ids, data_directory, yr, mnth, channel, group):
    num_sensors = len(sensor_ids)
    request_num = 0
    for sensor in sensor_ids:
@@ -133,18 +143,25 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
       #end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
       end_date = start_date + relativedelta(months=+1) 
       data_range = list(date_range(start_date, end_date, 4)) 
-      if args.channel == 'a':
-         filename_template = '{sensor_name} ({lat} {lon}) Primary {mnth}_{first_day}_{yr} {mnth}_{last_day}_{yr}_a.csv'
-      elif args.channel == 'b':
-         filename_template = '{sensor_name} ({lat} {lon}) Primary {mnth}_{first_day}_{yr} {mnth}_{last_day}_{yr}_b.csv'
+      if group == 'p':
+         group_str = "Primary"
+      elif group == 's':
+         group_str = "Secondary"
+      if channel == 'a':
+         channel_str = 'a'
+      elif channel == 'b':
+         channel_str = 'b'
+      filename_template = '{sensor_name} ({lat} {lon}) {group} {mnth}_{first_day}_{yr} {mnth}_{last_day}_{yr}_{channel}.csv'
       params = {
          'sensor_name': sensor_name,
          'lat': str(latitude),
          'lon': str(longitude),
+         'group': group_str,
          'mnth': str(mnth),
          'first_day': "01",
          'last_day': str(mnth_range[1]),
-         'yr': str(yr)
+         'yr': str(yr),
+         'channel': channel_str
          }
       filename = filename_template.format(**params)
       output_folder = start_date.strftime('%Y-%m')
@@ -155,28 +172,35 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
       for t in range(0, 4):
          request_num += 1
          root_url = 'https://api.thingspeak.com/channels/{channel}/feeds.csv?api_key={api_key}&start={start}%20{offset}&end={end}%20{offset}'
-         if args.channel == 'a':
-            channel = sensor[4] # channel A
-            api_key = sensor[5] # channel A
-         elif args.channel == 'b':
-            channel = sensor[6] # channel B
-            api_key = sensor[7] # channel B
+         if channel == 'a' and group == 'p':
+            channel_id = sensor[4] # primary channel A
+            api_key = sensor[5] # primary channel A
+         elif channel == 'b' and group == 'p':
+            channel_id = sensor[6] # primary channel B
+            api_key = sensor[7] # primary channel B
          start_date = data_range[t]
+         if channel == 'a' and group == 's':
+            channel_id = sensor[8] # secondary channel A
+            api_key = sensor[9] # secondary channel A
+         elif channel == 'b' and group == 's':
+            channel_id = sensor[10] # secondary channel B
+            api_key = sensor[11] # secondary channel B
+
          end_date = data_range[t+1]
          params = {
-            'channel': channel,
+            'channel': channel_id,
             'api_key': api_key,
             'start': start_date,
             'end': end_date,
             'offset': time_offset
             }
          url = root_url.format(**params)
-         print(f"{request_num} of {num_sensors * 4} : {url}")
+         print(f"{yr}-{mnth} {request_num} of {num_sensors * 4} : {url}")
          if t == 0:
             df = pd.read_csv(url)
          else:
             df = pd.concat([df, pd.read_csv(url)])
-      if args.channel == 'a':
+      if channel == 'a' and group == 'p':
          mapping = {
             'created_at': 'created_at',
             'entry_id': 'entry_id',
@@ -189,7 +213,7 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
             'field7': 'Humidity_%',
             'field8': 'PM2.5_ATM_ug/m3'
             }
-      elif args.channel == 'b':
+      elif channel == 'b' and group == 'p':
          mapping = {
             'created_at': 'created_at',
             'entry_id': 'entry_id',
@@ -202,6 +226,33 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
             'field7': 'IAQ',
             'field8': 'PM2.5_ATM_ug/m3'
             }
+      if channel == 'a' and group == 's':
+         mapping = {
+            'created_at': 'created_at',
+            'entry_id': 'entry_id',
+            'field1': '>=0.3um/dl',
+            'field2': '>=0.5um/dl',
+            'field3': '>=1.0um/dl',
+            'field4': '>=2.5um/dl',
+            'field5': '>=5.0um/dl',
+            'field6': '>=10.0um/dl',
+            'field7': 'PM1.0_ATM_ug/m3',
+            'field8': 'PM10_ATM_ug/m3'
+            }
+      if channel == 'b' and group == 's':
+         mapping = {
+            'created_at': 'created_at',
+            'entry_id': 'entry_id',
+            'field1': '>=0.3um/dl',
+            'field2': '>=0.5um/dl',
+            'field3': '>=1.0um/dl',
+            'field4': '>=2.5um/dl',
+            'field5': '>=5.0um/dl',
+            'field6': '>=10.0um/dl',
+            'field7': 'PM1.0_ATM_ug/m3',
+            'field8': 'PM10_ATM_ug/m3'
+            }
+
       df = df.rename(columns=mapping)
       #print(" ")
       #print(df)
@@ -210,16 +261,18 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth):
 
 
 #Main
+args = get_arguments()
 list_of_sensor_indexes = get_sensor_indexes()
 sensor_ids = get_sensor_ids(list_of_sensor_indexes)
-yrs = [2018, 2019, 2020]
-args.channel = 'b'
-for yr in yrs:
-   mnth = 1
-   while mnth <= 12:
-      get_ts_data(sensor_ids, data_directory, yr, mnth)
-      mnth += 1
-#get_ts_data(sensor_ids, data_directory, args.yr, args.mnth)
+#yrs = [2018, 2019, 2020]
+#args.channel = 'b'
+#args.group = 's'
+#for yr in yrs:
+   #mnth = 1
+   #while mnth <= 12:
+      #get_ts_data(sensor_ids, data_directory, yr, mnth, args.channel, args.group)
+      #mnth += 1
+get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, args.channel, args.group)
 duration = 500 # milliseconds
 freq = 660 # Hz
 winsound.Beep(freq, duration)
