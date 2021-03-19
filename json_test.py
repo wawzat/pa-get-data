@@ -11,7 +11,7 @@ def get_sensor_data(sensor_id):
       }
    url_template = root_url + "{sensor_id}"
    url = url_template.format(**params)
-   print(url)
+   #print(url)
    try:
       df = pd.read_json(url)
    except Exception as e:
