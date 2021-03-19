@@ -6,7 +6,6 @@ import json
 
 def get_sensor_data(sensor_id):
    root_url = "https://www.purpleair.com/json?show="
-
    params = {
       'sensor_id': sensor_id
       }
@@ -15,14 +14,13 @@ def get_sensor_data(sensor_id):
    print(url)
    try:
       df = pd.read_json(url)
-      
    except Exception as e:
       print(e)
    return df
 
+
 sensor_id = 9208
 df = get_sensor_data(sensor_id)
-
 print(df['results'][0]['Stats'])
 stats_dict = json.loads(df['results'][0]['Stats'])
 pm25_24_hr_avg = stats_dict['v5']
