@@ -19,9 +19,9 @@ def get_sensor_data(sensor_id):
    return df
 
 
-sensor_id = 9208
+sensor_id = '9208'
 df = get_sensor_data(sensor_id)
-print(df['results'][0]['Stats'])
+#print(df['results'][0]['Stats'])
 stats_dict = json.loads(df['results'][0]['Stats'])
 pm25_24_hr_avg = stats_dict['v5']
 output_string = f"24 Hr Average PM 2.5: {pm25_24_hr_avg}"
