@@ -20,8 +20,6 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
 
     DARKSKY_API_KEY = 'INSERT DARKSKY API KEY HERE'  
 
-    HOME = 'INSERT LAT AND LON COODINATES FOR HOME HERE SEPARATED BY COMMA NO PARENTHESES' (e.g. 35.4425311, -119.332123)  
-
 2. Run the program for example: python pa_get_data.py -y 2020 -m 9  
 3. Parameters:  
   * -y, --year   year to get data for.  
