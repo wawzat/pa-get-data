@@ -23,11 +23,11 @@ Data are stored in csv files per sensor similarly to the PurpleAir map download 
 2. Run the program for example: python pa_get_data.py -y 2020 -m 9  
 3. Parameters:  
   * -y, --year         year to get data for.  
-  * -m  --month        month to get data for.  
-  * -c  --channel      channel to get.  
+  * -m  --month       month to get data for.  
+  * -c  --channel        channel to get.  
   * -g  --group        group to get (primary or secondary).  
   * -a  --all          get all channels and groups.  
-  * -r  --regional     get data for regions defined in config.py bbox_dict.  
+  * -r  --regional       get data for regions defined in config.py bbox_dict.  
 
 
 
