@@ -5,11 +5,14 @@
 # Todo: Handle daylight savings offset in transition months
 
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import json
 import os
 import config
 import argparse
 import pandas as pd
+from time import sleep
 import calendar
 from datetime import datetime
 import pytz
@@ -26,14 +29,24 @@ def get_arguments():
    parser = argparse.ArgumentParser(
    description='Dowload PurpleAir csv files for sensors in bounding box during year and month provided.',
    prog='pa_get_data',
-   usage='%(prog)s [-y <year>], [-m <month>], [-c <channel>], [-g <group>]',
+   usage='%(prog)s [-b <bbox>], [-y <year>], [-m <month>], [-c <channel>], [-g <group>], [-a], [r]',
    formatter_class=argparse.RawDescriptionHelpFormatter,
    )
    g=parser.add_argument_group(title='arguments',
-         description='''    -y, --year   year to get data for.
-   -m  --month  month to get data for.
-   -c  --channel  channel to get  
-   -g  --group    group to get (primary or secondary)                                      ''')
+         description='''    -b, --bbox  bbox format: Lower_Left_lon Lower_Left_lat Upper_Right_lon Upper_Right_lat
+   -y, --year     year to get data for.
+   -m  --month    month to get data for.
+   -c  --channel  channel to get.  
+   -g  --group    group to get (primary or secondary).
+   -a  --all      get all channels and groups.
+   -r  --regional get data for regions defined in config.py bbox_dict.
+   -f  --folder   folder prefex to save data in                                                ''')
+   g.add_argument('-b', '--bbox',
+                  type=float,
+                  nargs=4,
+                  dest='bbox',
+                  default=False,
+                  help=argparse.SUPPRESS)
    g.add_argument('-y', '--year',
                   type=int,
                   dest='yr',
@@ -51,17 +64,35 @@ def get_arguments():
    g.add_argument('-g', '--group',
                   type=str,
                   dest='group',
-                  default='a',
+                  default='p',
                   choices=['p', 's'],
+                  help=argparse.SUPPRESS)
+   g.add_argument('-a', '--all',
+                  action='store_true',
+                  dest='all',
+                  help=argparse.SUPPRESS)
+   g.add_argument('-r', '--regional',
+                  action='store_true',
+                  dest='regional',
+                  help=argparse.SUPPRESS),
+   g.add_argument('-f', '--folder',
+                  type=str,
+                  dest='folder',
+                  default=False,
                   help=argparse.SUPPRESS)
    args = parser.parse_args()
    return(args)
 
 
+def get_sensor_indexes(bbox):
+   session = requests.Session()
+   retry = Retry(connect=3, backoff_factor=0.5)
+   adapter = HTTPAdapter(max_retries=retry)
+   session.mount('http://', adapter)
+   session.mount('https://', adapter)
 
-def get_sensor_indexes():
    root_url = "https://api.purpleair.com/v1/sensors"
-   bbox = config.bbox
+   #bbox = config.bbox
    #sensor_index is returned automatically and doesn't need to be included in params fields
    params = {
       'fields': "name,latitude,longitude",
@@ -74,8 +105,8 @@ def get_sensor_indexes():
    url = url_template.format(**params)
    try:
       list_of_sensor_indexes = []
-      header = {"X-API-Key":config.READ_KEY}
-      response = requests.get(url, headers=header)
+      header = {"X-API-Key":config.PURPLEAIR_READ_KEY}
+      response = session.get(url, headers=header)
       if response.status_code == 200:
          sensors_data = json.loads(response.text)
          for sensor_list in sensors_data['data']:
@@ -93,7 +124,7 @@ def get_sensor_indexes():
 def get_sensor_ids(list_of_sensor_indexes):
    sensor_ids = []
    root_url = "https://api.purpleair.com/v1/sensors/{sensor_index}"
-   header = {"X-API-Key":config.READ_KEY}
+   header = {"X-API-Key":config.PURPLEAIR_READ_KEY}
    for sensor_index in list_of_sensor_indexes:
       params = {'sensor_index': sensor_index}
       url = root_url.format(**params)
@@ -113,6 +144,8 @@ def get_sensor_ids(list_of_sensor_indexes):
          sensor_data['sensor']['secondary_id_b'], 
          sensor_data['sensor']['secondary_key_b']
         ))
+      #print(sensor_data['sensor']['latitude'])
+      #print(sensor_data['sensor']['longitude'])
    return sensor_ids
 
 
@@ -123,7 +156,7 @@ def date_range(start, end, intv):
    yield end.strftime("%Y%m%d")
 
 
-def get_ts_data(sensor_ids, data_directory, yr, mnth, channel, group):
+def get_ts_data(sensor_ids, data_directory, yr, mnth, channel, group, suffix, folder):
    num_sensors = len(sensor_ids)
    request_num = 0
    for sensor in sensor_ids:
@@ -164,7 +197,11 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth, channel, group):
          'channel': channel_str
          }
       filename = filename_template.format(**params)
-      output_folder = start_date.strftime('%Y-%m')
+      #output_folder = start_date.strftime('%Y-%m')
+      if folder:
+         output_folder = folder + " " + start_date.strftime('%Y-%m') + suffix
+      else:
+         output_folder = start_date.strftime('%Y-%m') + suffix
       output_path = data_directory + os.path.sep + output_folder
       if not os.path.isdir(output_path):
          os.mkdir(output_path)
@@ -262,8 +299,7 @@ def get_ts_data(sensor_ids, data_directory, yr, mnth, channel, group):
 
 #Main
 args = get_arguments()
-list_of_sensor_indexes = get_sensor_indexes()
-sensor_ids = get_sensor_ids(list_of_sensor_indexes)
+
 #yrs = [2018, 2019, 2020]
 #args.channel = 'b'
 #args.group = 's'
@@ -272,7 +308,35 @@ sensor_ids = get_sensor_ids(list_of_sensor_indexes)
    #while mnth <= 12:
       #get_ts_data(sensor_ids, data_directory, yr, mnth, args.channel, args.group)
       #mnth += 1
-get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, args.channel, args.group)
+if args.regional:
+   for key, value in config.bbox_dict.items():
+      #print(value[0])
+      list_of_sensor_indexes = get_sensor_indexes(value[0])
+      sensor_ids = get_sensor_ids(list_of_sensor_indexes)
+      if args.all:
+         channels = ['a', 'b']
+         groups = ['p', 's']
+         for g in groups:
+            for c in channels:
+               get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, c, g, suffix=value[1], folder=args.folder)
+      else:
+         get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, args.channel, args.group, suffix=value[1], folder=args.folder)
+else:
+   if args.bbox:
+      bbox = args.bbox
+   else:
+      bbox = config.bbox
+   list_of_sensor_indexes = get_sensor_indexes(bbox)
+   sensor_ids = get_sensor_ids(list_of_sensor_indexes)
+   if args.all:
+      channels = ['a', 'b']
+      groups = ['p', 's']
+      for g in groups:
+         for c in channels:
+            get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, c, g, suffix = '', folder=args.folder)
+   else:
+      get_ts_data(sensor_ids, data_directory, args.yr, args.mnth, args.channel, args.group, suffix = '', folder=args.folder)
+
 duration = 500 # milliseconds
 freq = 660 # Hz
 winsound.Beep(freq, duration)
