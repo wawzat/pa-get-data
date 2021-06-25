@@ -4,6 +4,7 @@
 # James S. Lucas 20210120
 # Todo: Handle daylight savings offset in transition months
 
+import logging
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -20,6 +21,20 @@ from timezonefinder import TimezoneFinder
 from dateutil.relativedelta import relativedelta
 import winsound
 
+# Initialize your own logger
+logger = logging.getLogger('pa_get_data')
+logger.setLevel(logging.DEBUG)
+
+# Silence other loggers
+for log_name, log_obj in logging.Logger.manager.loggerDict.items():
+   if log_name != 'pa_get_data':
+      log_obj.disabled = True
+#logger.setLevel(format='%(levelname)s:%(message)s', level=logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 # Change this variable to point to the desired directory variable in config.py. 
 data_directory = config.matrix5
@@ -112,7 +127,7 @@ def get_sensor_indexes(bbox):
          for sensor_list in sensors_data['data']:
             list_of_sensor_indexes.append(sensor_list[0])
          print(" ")
-         print (list_of_sensor_indexes)
+         logger.debug(list_of_sensor_indexes)
          print(" ")
          return list_of_sensor_indexes
       else:
